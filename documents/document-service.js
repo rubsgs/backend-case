@@ -10,6 +10,6 @@ export async function saveDocument(document) {
     ...document,
     type: fileType.mime,
   });
-  console.log("teste");
+
   return savedDocument;
 }
