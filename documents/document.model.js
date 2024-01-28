@@ -1,10 +1,11 @@
-import { Schema, Model, String, Buffer } from "mongoose";
+import mongoose from "mongoose";
 
-const schema = new Schema({
-  filename: String,
+const schema = new mongoose.Schema({
+  name: String,
+  originalName: String,
   content: Buffer,
   verificationDigest: String,
   type: String,
 });
 
-export const documentModel = Model("Document", schema);
+export const documentModel = mongoose.model("Document", schema);
