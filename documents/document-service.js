@@ -5,7 +5,7 @@ import {
 } from "./document-repository.js";
 import { fileTypeFromBuffer } from "file-type";
 import crypto from "crypto";
-import { v4 as uuid } from "uuid";
+import { v4 as uuidv4 } from "uuid";
 
 export async function validateDocument(document) {
   const {
@@ -35,7 +35,7 @@ export async function saveDocument(document, uuid, version) {
   const savedDocument = await saveDocumentModel({
     ...document,
     version: version || 1,
-    uuid: uuid || uuid(),
+    uuid: uuid || uuidv4(),
   });
   return savedDocument;
 }
