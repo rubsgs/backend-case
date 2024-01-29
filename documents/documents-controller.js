@@ -7,35 +7,10 @@ import {
   findDocuments,
   updateDocument,
 } from "./document-service.js";
-import { authenticateToken } from "../common/jwt-service.js";
-import { getUser } from "../users/user-service.js";
+import { verifyUserMiddleware } from "../common/verify-user-middleware.js";
 
 const router = Router();
 const multerMiddleware = multer();
-const verifyUserMiddleware = async (req, res, next) => {
-  const jwt = req.header("Authorization");
-  if (!jwt) {
-    res.status(401);
-    res.send();
-    return;
-  }
-
-  const user = await authenticateToken(jwt.replace("Bearer ", ""));
-  if (!user) {
-    res.status(401);
-    res.send();
-    return;
-  }
-
-  const { username, _id } = user;
-  const validateUser = await getUser({ username, _id });
-  if (!validateUser) {
-    res.status(401);
-    res.send();
-    return;
-  }
-  next();
-};
 
 function documentFromRequest(req) {
   const {
@@ -55,20 +30,28 @@ function documentFromRequest(req) {
 }
 
 router.get("/", verifyUserMiddleware, async (req, res) => {
-  const { categories } = req.query;
-  if (!Array.isArray(categories)) {
-    res.status(400);
-    res.send("categories must be an array of strings");
+  try {
+    const { categories } = req.query;
+    if (!Array.isArray(categories)) {
+      res.status(400);
+      res.send("categories must be an array of strings");
+    }
+    const documents = await findDocuments(categories);
+    if (!documents || documents.length === 0) res.status(404);
+    res.send(documents);
+  } catch (e) {
+    next(e);
   }
-  const documents = await findDocuments(categories);
-  if (!documents || documents.length === 0) res.status(404);
-  res.send(documents);
 });
 
 router.get("/:uuid", verifyUserMiddleware, async (req, res) => {
-  const document = await getDocument(req.params.uuid);
-  if (!document) res.status(404);
-  res.send(document);
+  try {
+    const document = await getDocument(req.params.uuid);
+    if (!document) res.status(404);
+    res.send(document);
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.post(
@@ -76,20 +59,24 @@ router.post(
   multerMiddleware.single("file"),
   verifyUserMiddleware,
   async (req, res) => {
-    const document = documentFromRequest(req);
-    let fileType;
     try {
-      fileType = await validateDocument(document);
+      const document = documentFromRequest(req);
+      let fileType;
+      try {
+        fileType = await validateDocument(document);
+      } catch (e) {
+        res.send(e.message);
+        res.status(400);
+        return;
+      }
+      const savedDocument = await saveDocument({
+        ...document,
+        type: fileType,
+      });
+      res.send(savedDocument);
     } catch (e) {
-      res.send(e.message);
-      res.status(400);
-      return;
+      next(e);
     }
-    const savedDocument = await saveDocument({
-      ...document,
-      type: fileType,
-    });
-    res.send(savedDocument);
   }
 );
 
@@ -98,22 +85,26 @@ router.put(
   multerMiddleware.single("file"),
   verifyUserMiddleware,
   async (req, res) => {
-    const document = documentFromRequest(req);
-    const { uuid } = req.params;
-
-    let fileType;
     try {
-      fileType = await validateDocument(document);
+      const document = documentFromRequest(req);
+      const { uuid } = req.params;
+
+      let fileType;
+      try {
+        fileType = await validateDocument(document);
+      } catch (e) {
+        res.send(e.message);
+        res.status(400);
+        return;
+      }
+      const savedDocument = await updateDocument(uuid, {
+        ...document,
+        type: fileType,
+      });
+      res.send(savedDocument);
     } catch (e) {
-      res.send(e.message);
-      res.status(400);
-      return;
+      next(e);
     }
-    const savedDocument = await updateDocument(uuid, {
-      ...document,
-      type: fileType,
-    });
-    res.send(savedDocument);
   }
 );
 
